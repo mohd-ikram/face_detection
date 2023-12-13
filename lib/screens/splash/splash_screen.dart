@@ -1,3 +1,4 @@
+import 'package:face_detection/utils/log.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -12,21 +13,10 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    duration: const Duration(seconds: 4),
-    vsync: this,
-  )..repeat(reverse: true);
-
-  late final Animation<double> _animation = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.elasticOut,
-  );
+class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
     super.dispose();
   }
 
@@ -36,24 +26,23 @@ class _SplashScreenState extends State<SplashScreen>
       SharedPreferenceService preferenceService =
           Get.find<SharedPreferenceService>();
       if (preferenceService.getBool(TextConst.isFirstTimeUser) ?? true) {
+        Log.logger.v("First time user");
         Get.offAndToNamed(AppRoute.login);
       } else {
+        Log.logger.v("Next time user");
         Get.offAndToNamed(AppRoute.dashboard);
       }
     });
 
     return Material(
-      /*child: RotationTransition(
-        turns: _animation,
-        child: Center(
-          child: Text('Face Detection', style: AppTextStyle.boldWhite28.copyWith(color: ColorConst.primary)),
-        ),
-      ),*/
+
       child: Center(
           child: SizedBox(
         width: 200,
         height: 200,
-        child: Image.asset('assets/images/f_detection.png',),
+        child: Image.asset(
+          'assets/images/f_detection.png',
+        ),
       )),
     );
   }
