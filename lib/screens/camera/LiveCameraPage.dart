@@ -22,7 +22,7 @@ class _LiveCameraPageState extends State<LiveCameraPage>
   @override
   void initState() {
     // Hide the status bar
-    SystemChrome.setEnabledSystemUIOverlays([]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     getPermissionStatus();
     initCamera();
     super.initState();

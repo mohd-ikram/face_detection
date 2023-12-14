@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:camera/camera.dart';
 import 'package:face_detection/screens/dashboard/ml_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/User.dart';
@@ -36,7 +33,7 @@ class _DashboardPageState extends State<DashboardPage>
   @override
   void initState() {
     // Hide the status bar
-    SystemChrome.setEnabledSystemUIOverlays([]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     getPermissionStatus();
     initCamera();
     super.initState();
@@ -50,20 +47,23 @@ class _DashboardPageState extends State<DashboardPage>
 
   Future<void> initCamera() async {
     try {
+      Log.logger.d('Logger.. Init camera');
       WidgetsFlutterBinding.ensureInitialized();
       cameras = await availableCameras();
 
       _faceDetector = GoogleMlKit.vision.faceDetector(
           FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate));
     } on CameraException catch (e) {
-      Log.logger.e('Error in fetching the cameras: $e');
+      Log.logger.e('Logger.. Error in fetching the cameras: $e');
     }
   }
 
   // Predict face from camera image
   Future<void> _predictFacesFromImage(
       {required CameraImage cameraImage}) async {
+    await detectFacesFromCameraImage(cameraImage);
     if (faceList.isNotEmpty) {
+      Log.logger.v("Logger _predictFacesFromImage =>  faceList.isNotEmpty... ");
       User? user = await _mlService.predict(
           cameraImage,
           faceList[0],
@@ -71,12 +71,14 @@ class _DashboardPageState extends State<DashboardPage>
           widget.user != null ? widget.user!.userName! : txtController.text);
       if (widget.user == null) {
         Navigator.pop(context);
-        Log.logger.d("User Registed....");
+        Log.logger.d("Logger.. User Registed....");
       } else {
+        Log.logger.v("Logger.. _predictFacesFromImage... ");
         //Navigate to home screen with user data
       }
     }
     if (mounted) {
+      Log.logger.d("Logger..Mounted....");
       setState(() {});
       await takePicture();
     }
@@ -98,6 +100,7 @@ class _DashboardPageState extends State<DashboardPage>
 
   //Detect faces from image
   Future<void> detectFacesFromCameraImage(CameraImage cameraImage) async {
+    Log.logger.d("Logger.. detectFacesFromCameraImage");
     InputImageData inputImageData = InputImageData(
         size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
         imageRotation: rotationIntToImageRotation(
@@ -114,6 +117,7 @@ class _DashboardPageState extends State<DashboardPage>
     InputImage visionImage = InputImage.fromBytes(
         bytes: cameraImage.planes[0].bytes, inputImageData: inputImageData);
     var result = await _faceDetector!.processImage(visionImage);
+    Log.logger.d("Logger.. Image result");
     if (result.isNotEmpty) {
       faceList = result;
     }
@@ -123,7 +127,7 @@ class _DashboardPageState extends State<DashboardPage>
     await Permission.camera.request();
     var status = await Permission.camera.status;
     if (status.isGranted) {
-      Log.logger.d('Camera Permission: GRANTED');
+      Log.logger.d('Logger.. Camera Permission: GRANTED');
       setState(() {
         _isCameraPermissionGranted = true;
       });
@@ -131,7 +135,7 @@ class _DashboardPageState extends State<DashboardPage>
       onNewCameraSelected(cameras![0]);
       //refreshAlreadyCapturedImages();
     } else {
-      Log.logger.d('Camera Permission: DENIED');
+      Log.logger.d('Logger.. Camera Permission: DENIED');
     }
   }
 
@@ -160,8 +164,8 @@ class _DashboardPageState extends State<DashboardPage>
     // ResolutionPreset currentResolutionPreset = ResolutionPreset.high;
     final CameraController cameraController = CameraController(
       cameraDescription,
-      ResolutionPreset.high,
-      imageFormatGroup: ImageFormatGroup.jpeg,
+      ResolutionPreset.medium,
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
 
     // Dispose the previous controller
@@ -184,7 +188,7 @@ class _DashboardPageState extends State<DashboardPage>
     try {
       await cameraController.initialize();
     } on CameraException catch (e) {
-      Log.logger.e('Error initializing camera: $e');
+      Log.logger.e('Logger.. Error initializing camera: $e');
     }
 
     // Update the Boolean
@@ -199,15 +203,15 @@ class _DashboardPageState extends State<DashboardPage>
     final CameraController? cameraController = controller;
     if (cameraController!.value.isTakingPicture) {
       // A capture is already pending, do nothing.
-      Log.logger.v("Taking picture ");
+      Log.logger.v("Logger.. Taking picture ");
       return null;
     }
     try {
       XFile file = await cameraController.takePicture();
-      Log.logger.v("Image file is at "+file.path);
+      Log.logger.v("Logger.. Image file is at " + file.path);
       return file;
     } on CameraException catch (e) {
-      Log.logger.e('Error occured while taking picture: $e');
+      Log.logger.e('Logger.. Error occured while taking picture: $e');
       return null;
     }
   }
@@ -279,15 +283,23 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
                 InkWell(
                   onTap: () async {
-                    /*bool canProcess = false;
+                    bool canProcess = false;
+                    Log.logger.v("Logger.. Camera button tap");
                     controller!.startImageStream((image) async {
-                      if (canProcess) return;
+                      Log.logger.v("Logger.. startImageStream");
+                      if (canProcess) {
+                        Log.logger.v("Logger.. Can process ... $canProcess");
+                        return;
+                      }
+                      canProcess = true;
+
                       _predictFacesFromImage(cameraImage: image).then((value) {
+                        Log.logger.v("Logger.. _predictFacesFromImage.then ... ");
                         canProcess = false;
                       });
                       return null;
-                    });*/
-                    XFile? rawImage = await takePicture();
+                    });
+                    /*XFile? rawImage = await takePicture();
                     File imageFile = File(rawImage!.path);
 
                     int currentUnix = DateTime.now().millisecondsSinceEpoch;
@@ -296,7 +308,7 @@ class _DashboardPageState extends State<DashboardPage>
 
                     await imageFile.copy(
                       '${directory.path}/$currentUnix.$fileFormat',
-                    );
+                    );*/
                   },
                   child: Stack(
                     alignment: Alignment.center,
