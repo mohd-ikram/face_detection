@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -16,7 +17,7 @@ class MLService {
   late Interpreter interpreter;
   List? predictedArray;
 
-  Future<User?> predict(
+  Future<int> predict(
       CameraImage image, Face face, bool loginUser, String? userName) async {
     List inputList = _preProcessImage(image, face);
     inputList = inputList.reshape([1, 112, 112, 3]);
@@ -31,7 +32,7 @@ class MLService {
       Log.logger.v("Logger predict 1111 => Not login user");
       LocalDatabase.setUserDetails(
           User(userName: userName, dataArray: predictedArray));
-      return null;
+      return 0;
     } else{
         Log.logger.v("Logger predict 1111 => Login user");
         int minDist = 999;
@@ -40,10 +41,10 @@ class MLService {
         Log.logger.v("Logger predict 1111");
         if (dist < threshold && dist < minDist) {
           Log.logger.v("Logger predict 2222");
-          return user;
+          return 1;
         } else {
           Log.logger.v("Logger predict 3333");
-          return null;
+          return 2;
         }
 
     }

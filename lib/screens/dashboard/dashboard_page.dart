@@ -68,6 +68,7 @@ class _DashboardPageState extends State<DashboardPage>
   // Predict face from camera image
   Future<void> _predictFacesFromImage(
       {required CameraImage cameraImage}) async {
+    String msg = 'User not registerd....';
     await detectFacesFromCameraImage(cameraImage);
     if (faceList.isNotEmpty) {
       Log.logger.v("Logger _predictFacesFromImage =>  faceList.isNotEmpty... ");
@@ -76,16 +77,28 @@ class _DashboardPageState extends State<DashboardPage>
           faceList[0],
           widget.user != null,
           widget.user != null ? widget.user!.userName! : txtController.text);*/
-      User? _user = await _mlService.predict(cameraImage, faceList[0],
-          user != null, (user!.dataArray??[]).isEmpty ? txtController.text : user!.userName);
-      if ((user!.dataArray??[]).isEmpty && _user==null) {
+      int status = await _mlService.predict(
+          cameraImage,
+          faceList[0],
+          user != null,
+          (user!.dataArray ?? []).isEmpty
+              ? txtController.text
+              : user!.userName);
+      if (status==0) {
+        msg = 'User registerd....';
         Get.back();
-        Log.logger.d("Logger.. User Registerd....");
-      } else {
+        Log.logger.d("Logger.. User registerd....");
+      } else if(status == 1){
+        msg = 'User logged in... ';
         Log.logger.v("Logger.. User login... ");
         //Navigate to home screen with user data
         Get.offAndToNamed(AppRoute.home, arguments: {"user": user});
+      }else{
+        msg = 'User not registerd... ';
+        Log.logger.d("Logger.. User not registerd....");
+
       }
+      _showToast(context, msg);
     }
     if (mounted) {
       Log.logger.d("Logger..Mounted....");
@@ -382,5 +395,14 @@ class _DashboardPageState extends State<DashboardPage>
             child: controller!.buildPreview(),
           )
         : Container();
+  }
+  void _showToast(BuildContext context,String msg) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        action: SnackBarAction(label: 'OK', onPressed: scaffold.hideCurrentSnackBar),
+      ),
+    );
   }
 }
