@@ -2,6 +2,7 @@ class AppRoute {
   //Splash & Login
   static const String splashScreen = "/";
   static const String onboarding = "/onboarding";
+  static const String home = "/home";
   static const String login = "/login";
   static const String signup = "/signup";
 

@@ -1,7 +1,9 @@
 import 'package:camera/camera.dart';
+import 'package:face_detection/routes/app_routes.dart';
 import 'package:face_detection/screens/dashboard/ml_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -9,9 +11,7 @@ import '../../models/User.dart';
 import '../../utils/log.dart';
 
 class DashboardPage extends StatefulWidget {
-  final User? user;
-
-  const DashboardPage({Key? key, this.user}) : super(key: key);
+  const DashboardPage({Key? key}) : super(key: key);
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -19,8 +19,10 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage>
     with WidgetsBindingObserver {
+  final User? user = Get.arguments["user"] as User;
   TextEditingController txtController = TextEditingController();
   List<CameraDescription>? cameras;
+  int _cameraIndex = 0;
   CameraController? controller;
   bool _isRearCameraSelected = false;
   bool _isCameraInitialized = false;
@@ -31,17 +33,25 @@ class _DashboardPageState extends State<DashboardPage>
   bool flash = false;
 
   @override
+  void onInit() {
+    // user = Get.arguments["user"] as User;
+  }
+
+  @override
   void initState() {
     // Hide the status bar
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     getPermissionStatus();
     initCamera();
+    _faceDetector = GoogleMlKit.vision.faceDetector(
+        FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate));
     super.initState();
   }
 
   @override
   void dispose() {
     controller?.dispose();
+    txtController?.dispose();
     super.dispose();
   }
 
@@ -50,9 +60,6 @@ class _DashboardPageState extends State<DashboardPage>
       Log.logger.d('Logger.. Init camera');
       WidgetsFlutterBinding.ensureInitialized();
       cameras = await availableCameras();
-
-      _faceDetector = GoogleMlKit.vision.faceDetector(
-          FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate));
     } on CameraException catch (e) {
       Log.logger.e('Logger.. Error in fetching the cameras: $e');
     }
@@ -64,17 +71,20 @@ class _DashboardPageState extends State<DashboardPage>
     await detectFacesFromCameraImage(cameraImage);
     if (faceList.isNotEmpty) {
       Log.logger.v("Logger _predictFacesFromImage =>  faceList.isNotEmpty... ");
-      User? user = await _mlService.predict(
+      /*User? _user = await _mlService.predict(
           cameraImage,
           faceList[0],
           widget.user != null,
-          widget.user != null ? widget.user!.userName! : txtController.text);
-      if (widget.user == null) {
-        Navigator.pop(context);
-        Log.logger.d("Logger.. User Registed....");
+          widget.user != null ? widget.user!.userName! : txtController.text);*/
+      User? _user = await _mlService.predict(cameraImage, faceList[0],
+          user != null, (user!.dataArray??[]).isEmpty ? txtController.text : user!.userName);
+      if ((user!.dataArray??[]).isEmpty && _user==null) {
+        Get.back();
+        Log.logger.d("Logger.. User Registerd....");
       } else {
-        Log.logger.v("Logger.. _predictFacesFromImage... ");
+        Log.logger.v("Logger.. User login... ");
         //Navigate to home screen with user data
+        Get.offAndToNamed(AppRoute.home, arguments: {"user": user});
       }
     }
     if (mounted) {
@@ -87,6 +97,8 @@ class _DashboardPageState extends State<DashboardPage>
   //Image rotation
   InputImageRotation rotationIntToImageRotation(int rotation) {
     switch (rotation) {
+      case 0:
+        return InputImageRotation.rotation0deg;
       case 90:
         return InputImageRotation.rotation90deg;
       case 180:
@@ -101,11 +113,32 @@ class _DashboardPageState extends State<DashboardPage>
   //Detect faces from image
   Future<void> detectFacesFromCameraImage(CameraImage cameraImage) async {
     Log.logger.d("Logger.. detectFacesFromCameraImage");
+    final _orientations = {
+      DeviceOrientation.portraitUp: 0,
+      DeviceOrientation.landscapeLeft: 90,
+      DeviceOrientation.portraitDown: 180,
+      DeviceOrientation.landscapeRight: 270,
+    };
+    final camera = cameras![_cameraIndex];
+    final sensorOrientation = camera.sensorOrientation;
+    InputImageRotation? rotation;
+    var rotationCompensation =
+        _orientations[controller!.value.deviceOrientation];
+    if (rotationCompensation == null) return null;
+    if (camera.lensDirection == CameraLensDirection.front) {
+      // front-facing
+      rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
+    } else {
+      // back-facing
+      rotationCompensation =
+          (sensorOrientation - rotationCompensation + 360) % 360;
+    }
+    rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
+    // print('rotationCompensation: $rotationCompensation');
     InputImageData inputImageData = InputImageData(
         size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
-        imageRotation: rotationIntToImageRotation(
-            controller!.description.sensorOrientation),
-        inputImageFormat: InputImageFormat.bgra8888,
+        imageRotation: rotation!,
+        inputImageFormat: InputImageFormat.yuv420,
         planeData: cameraImage.planes.map(
           (Plane plane) {
             return InputImagePlaneMetadata(
@@ -114,10 +147,12 @@ class _DashboardPageState extends State<DashboardPage>
                 width: plane.width);
           },
         ).toList());
+    Log.logger.d("Logger.. detectFacesFromCameraImage ${inputImageData}");
     InputImage visionImage = InputImage.fromBytes(
         bytes: cameraImage.planes[0].bytes, inputImageData: inputImageData);
+    Log.logger.d("Logger.. detectFacesFromCameraImage ${visionImage.bytes}");
     var result = await _faceDetector!.processImage(visionImage);
-    Log.logger.d("Logger.. Image result");
+    Log.logger.d("Logger.. Image result isEmpty ${result.isEmpty}");
     if (result.isNotEmpty) {
       faceList = result;
     }
@@ -132,7 +167,7 @@ class _DashboardPageState extends State<DashboardPage>
         _isCameraPermissionGranted = true;
       });
       // Set and initialize the new camera
-      onNewCameraSelected(cameras![0]);
+      onNewCameraSelected(cameras![_cameraIndex]);
       //refreshAlreadyCapturedImages();
     } else {
       Log.logger.d('Logger.. Camera Permission: DENIED');
@@ -165,7 +200,8 @@ class _DashboardPageState extends State<DashboardPage>
     final CameraController cameraController = CameraController(
       cameraDescription,
       ResolutionPreset.medium,
-      imageFormatGroup: ImageFormatGroup.yuv420,
+      imageFormatGroup: ImageFormatGroup.nv21,
+      enableAudio: false,
     );
 
     // Dispose the previous controller
@@ -256,8 +292,9 @@ class _DashboardPageState extends State<DashboardPage>
                     setState(() {
                       _isCameraInitialized = false;
                     });
+                    _cameraIndex = _isRearCameraSelected ? 0 : 1;
                     onNewCameraSelected(
-                      cameras![_isRearCameraSelected ? 0 : 1],
+                      cameras![_cameraIndex],
                     );
                     setState(() {
                       _isRearCameraSelected = !_isRearCameraSelected;
@@ -294,7 +331,8 @@ class _DashboardPageState extends State<DashboardPage>
                       canProcess = true;
 
                       _predictFacesFromImage(cameraImage: image).then((value) {
-                        Log.logger.v("Logger.. _predictFacesFromImage.then ... ");
+                        Log.logger
+                            .v("Logger.. _predictFacesFromImage.then ... ");
                         canProcess = false;
                       });
                       return null;
@@ -310,7 +348,7 @@ class _DashboardPageState extends State<DashboardPage>
                       '${directory.path}/$currentUnix.$fileFormat',
                     );*/
                   },
-                  child: Stack(
+                  child: const Stack(
                     alignment: Alignment.center,
                     children: [
                       Icon(Icons.circle, color: Colors.white38, size: 80),

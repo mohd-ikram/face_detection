@@ -1,5 +1,5 @@
 
-import 'package:face_detection/screens/login/login_controller.dart';
+import 'package:face_detection/screens/home/home_controller.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

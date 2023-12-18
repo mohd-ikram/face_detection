@@ -17,7 +17,7 @@ class MLService {
   List? predictedArray;
 
   Future<User?> predict(
-      CameraImage image, Face face, bool loginUser, String userName) async {
+      CameraImage image, Face face, bool loginUser, String? userName) async {
     List inputList = _preProcessImage(image, face);
     inputList = inputList.reshape([1, 112, 112, 3]);
     List outputList = List.generate(1, (index) => List.filled(192, 0));
@@ -25,20 +25,27 @@ class MLService {
     interpreter.run(inputList, outputList);
     outputList = outputList.reshape([192]);
     predictedArray = List.from(outputList);
-    if (!loginUser) {
+    User? user = LocalDatabase.getUser();
+    List userArray = user!.dataArray??[];
+    if (!loginUser || userArray.isEmpty) {
+      Log.logger.v("Logger predict 1111 => Not login user");
       LocalDatabase.setUserDetails(
           User(userName: userName, dataArray: predictedArray));
       return null;
-    } else {
-      User? user = LocalDatabase.getUser();
-      List userArray = user!.dataArray!;
-      int minDist = 999;
-      double threshold = 1.5;
-      var dist = euclideanDistance(predictedArray!, userArray);
-      if (dist < threshold && dist < minDist) {
-        return user;
-      } else
-        return null;
+    } else{
+        Log.logger.v("Logger predict 1111 => Login user");
+        int minDist = 999;
+        double threshold = 1.5;
+        var dist = euclideanDistance(predictedArray!, userArray);
+        Log.logger.v("Logger predict 1111");
+        if (dist < threshold && dist < minDist) {
+          Log.logger.v("Logger predict 2222");
+          return user;
+        } else {
+          Log.logger.v("Logger predict 3333");
+          return null;
+        }
+
     }
   }
 
@@ -55,6 +62,7 @@ class MLService {
     Delegate? delegate;
     try {
       if (Platform.isAndroid) {
+        Log.logger.v("Logger initializeInterpreter 111");
         delegate = GpuDelegateV2(
             options: GpuDelegateOptionsV2(
           isPrecisionLossAllowed: false,
@@ -69,39 +77,59 @@ class MLService {
                 allowPrecisionLoss: true,
                 waitType: TFLGpuDelegateWaitType.active));
       }
+      Log.logger.v("Logger initializeInterpreter 222");
       var interpreterOption = InterpreterOptions()..addDelegate(delegate!);
       interpreter = await Interpreter.fromAsset("mobilefacenet.tflite",
           options: interpreterOption);
+
+      Log.logger.v("Logger initializeInterpreter 333");
     } catch (e) {
       Log.logger.e("Failed to load model....");
     }
   }
 
   List _preProcessImage(CameraImage cameraImage, Face face) {
+    Log.logger.v("Logger _preProcessImage 111");
     imglib.Image croppedImage = _cropFace(cameraImage, face);
     imglib.Image img = imglib.copyResizeCropSquare(croppedImage, 112);
-    Float32List imageAsList = _imageToByteListFloat32(img);
+    Float32List imageAsList = imageToByteListFloat32(img);
+    Log.logger.v("_preProcessImage 222");
     return imageAsList;
   }
 
   imglib.Image _cropFace(CameraImage image, Face faceDetected) {
+    Log.logger.v("Logger _cropFace 111");
     imglib.Image convertedImage = _convertCameraImage(image);
     double x = faceDetected.boundingBox.left - 10.0;
     double y = faceDetected.boundingBox.top - 10.0;
     double w = faceDetected.boundingBox.width + 10.0;
     double h = faceDetected.boundingBox.height + 10.0;
+    Log.logger.v("Logger _cropFace 222");
     return imglib.copyCrop(
         convertedImage, x.round(), y.round(), w.round(), h.round());
   }
 
   imglib.Image _convertCameraImage(CameraImage image) {
+    Log.logger.v("Logger _convertCameraImage 111");
     var img = convertToImage(image);
     var img1 = imglib.copyRotate(img, -90);
+    Log.logger.v("Logger _convertCameraImage 222");
     return img1;
   }
 
-  Float32List _imageToByteListFloat32(imglib.Image image) {
+  Float32List imageToByteListFloat32(imglib.Image image) {
     var convertedBytes = Float32List(1 * 112 * 112 * 3);
+    var buffer = Float32List.view(convertedBytes.buffer);
+    int pixelIndex = 0;
+
+    for (var i = 0; i < 112; i++) {
+      for (var j = 0; j < 112; j++) {
+        var pixel = image.getPixel(j, i);
+        buffer[pixelIndex++] = (imglib.getRed(pixel) - 128) / 128;
+        buffer[pixelIndex++] = (imglib.getGreen(pixel) - 128) / 128;
+        buffer[pixelIndex++] = (imglib.getBlue(pixel) - 128) / 128;
+      }
+    }
     return convertedBytes.buffer.asFloat32List();
   }
 }

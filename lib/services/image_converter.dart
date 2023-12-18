@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:image/image.dart' as imglib;
 import 'package:camera/camera.dart';
 
@@ -7,6 +9,8 @@ imglib.Image convertToImage(CameraImage image) {
       return _convertYUV420(image);
     } else if (image.format.group == ImageFormatGroup.bgra8888) {
       return _convertBGRA8888(image);
+    }else if (image.format.group == ImageFormatGroup.nv21) {
+      return _convertNV21(image);
     }
     throw Exception('Image format not supported');
   } catch (e) {
@@ -23,7 +27,48 @@ imglib.Image _convertBGRA8888(CameraImage image) {
     format: imglib.Format.bgra,
   );
 }
+imglib.Image _convertNV21(CameraImage image) {
 
+  final width = image.width.toInt();
+  final height = image.height.toInt();
+
+  Uint8List yuv420sp = image.planes[0].bytes;
+
+  final outImg = imglib.Image(height, width);
+  final int frameSize = width * height;
+
+  for (int j = 0, yp = 0; j < height; j++) {
+    int uvp = frameSize + (j >> 1) * width, u = 0, v = 0;
+    for (int i = 0; i < width; i++, yp++) {
+      int y = (0xff & yuv420sp[yp]) - 16;
+      if (y < 0) y = 0;
+      if ((i & 1) == 0) {
+        v = (0xff & yuv420sp[uvp++]) - 128;
+        u = (0xff & yuv420sp[uvp++]) - 128;
+      }
+      int y1192 = 1192 * y;
+      int r = (y1192 + 1634 * v);
+      int g = (y1192 - 833 * v - 400 * u);
+      int b = (y1192 + 2066 * u);
+
+      if (r < 0)
+        r = 0;
+      else if (r > 262143) r = 262143;
+      if (g < 0)
+        g = 0;
+      else if (g > 262143) g = 262143;
+      if (b < 0)
+        b = 0;
+      else if (b > 262143) b = 262143;
+
+      // I don't know how these r, g, b values are defined, I'm just copying what you had bellow and
+      // getting their 8-bit values.
+      outImg.setPixelRgba(i, j, ((r << 6) & 0xff0000) >> 16,
+          ((g >> 2) & 0xff00) >> 8, (b >> 10) & 0xff);
+    }
+  }
+  return outImg;
+}
 imglib.Image _convertYUV420(CameraImage image) {
   int width = image.width;
   int height = image.height;

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../constant/color_const.dart';
 import '../../routes/app_routes.dart';
 import '../../theme/text_style.dart';
+import '../../utils/db/db_utils.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -71,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(8)),
               child: TextButton(
                 onPressed: () {
-                  Get.toNamed(AppRoute.dashboard);
+                  Get.toNamed(AppRoute.dashboard,arguments: {"user":LocalDatabase.getUser()});
                 },
                 child: const Text(
                   'Login',

@@ -16,7 +16,7 @@ class User {
         dataArrayKey: dataArray,
       };
   static User fromMap(Map<String, dynamic> user) {
-    return new User(
+    return User(
       userName: user[nameKey],
       dataArray: (user[dataArrayKey]),
     );

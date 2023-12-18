@@ -14,6 +14,7 @@ import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async{
+  WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await HiveBoxes.init();
   await SystemChrome.setPreferredOrientations([
