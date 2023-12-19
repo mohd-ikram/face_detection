@@ -1,4 +1,5 @@
 import 'package:face_detection/screens/home/home_page.dart';
+import 'package:face_detection/screens/register/register_page.dart';
 import 'package:get/get.dart';
 
 import '../screens/dashboard/dashboard_page.dart';
@@ -17,6 +18,11 @@ class AppPages {
     GetPage(
       name: AppRoute.login,
       page: () => const LoginPage(),
+      transition: Transition.fade,
+    ),
+    GetPage(
+      name: AppRoute.signup,
+      page: () => const RegisterPage(),
       transition: Transition.fade,
     ),
     GetPage(

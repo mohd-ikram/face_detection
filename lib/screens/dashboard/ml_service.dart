@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -17,7 +16,7 @@ class MLService {
   late Interpreter interpreter;
   List? predictedArray;
 
-  Future<int> predict(
+  Future<User?> predict(
       CameraImage image, Face face, bool loginUser, String? userName) async {
     List inputList = _preProcessImage(image, face);
     inputList = inputList.reshape([1, 112, 112, 3]);
@@ -26,27 +25,38 @@ class MLService {
     interpreter.run(inputList, outputList);
     outputList = outputList.reshape([192]);
     predictedArray = List.from(outputList);
-    User? user = LocalDatabase.getUser();
-    List userArray = user!.dataArray??[];
-    if (!loginUser || userArray.isEmpty) {
+    //List<dynamic> users = LocalDatabase.getUsers();
+    // List userArray = User.fromJson(users!.first.toMap()).dataArray??[];
+    if (!loginUser) {
       Log.logger.v("Logger predict 1111 => Not login user");
       LocalDatabase.setUserDetails(
           User(userName: userName, dataArray: predictedArray));
-      return 0;
-    } else{
-        Log.logger.v("Logger predict 1111 => Login user");
-        int minDist = 999;
-        double threshold = 1.5;
-        var dist = euclideanDistance(predictedArray!, userArray);
-        Log.logger.v("Logger predict 1111");
-        if (dist < threshold && dist < minDist) {
-          Log.logger.v("Logger predict 2222");
-          return 1;
-        } else {
-          Log.logger.v("Logger predict 3333");
-          return 2;
+      return null;
+    } else {
+      List<dynamic> users = LocalDatabase.getUsers();
+      Log.logger.v("Logger predict 1111 => Login user");
+      double minDist = 999;
+      //double threshold = 1.5;
+      double threshold = 0.7;
+      double currDist = 0.0;
+      User? predictedResult;
+      for (var data in users) {
+        try {
+          Log.logger.v(
+              "Logger User Image Data =>> ${User.fromJson(data).dataArray ?? []}");
+          currDist = euclideanDistance(
+              predictedArray!, User.fromJson(data).dataArray ?? []);
+          Log.logger.v("Logger predict 1111");
+          if (currDist <= threshold && currDist <= minDist) {
+            //minDist = currDist;
+            predictedResult = User.fromJson(data);
+            Log.logger.v("Logger predict 2222");
+          }
+        } catch (e) {
+          Log.logger.e("error===>$e");
         }
-
+      }
+      return predictedResult;
     }
   }
 
@@ -55,8 +65,8 @@ class MLService {
     for (int index = 0; index < list1.length; index++) {
       sum += pow((list1[index] - list2[index]), 2);
     }
-    // return pow(sum, 0.5);
-    return sqrt(sum);
+    return pow(sum, 0.5);
+    // return sqrt(sum);
   }
 
   initializeInterpreter() async {

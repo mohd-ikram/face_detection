@@ -10,16 +10,18 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../models/User.dart';
 import '../../utils/log.dart';
 
-class DashboardPage extends StatefulWidget {
-  const DashboardPage({Key? key}) : super(key: key);
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({Key? key}) : super(key: key);
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage>
+class _RegisterPageState extends State<RegisterPage>
     with WidgetsBindingObserver {
-  final User? user = Get.arguments["user"] as User;
+  bool _validateNameFiled = false;
+  final User? user = null;
+  TextEditingController txtController = TextEditingController();
   List<CameraDescription>? cameras;
   int _cameraIndex = 0;
   CameraController? controller;
@@ -50,6 +52,7 @@ class _DashboardPageState extends State<DashboardPage>
   @override
   void dispose() {
     controller?.dispose();
+    txtController?.dispose();
     super.dispose();
   }
 
@@ -76,22 +79,14 @@ class _DashboardPageState extends State<DashboardPage>
           widget.user != null,
           widget.user != null ? widget.user!.userName! : txtController.text);*/
       User? _user = await _mlService.predict(
-          cameraImage,
-          faceList[0],
-          true,null);
-      /*if (_user==null) {
+          cameraImage, faceList[0], false, txtController.text);
+      if (_user ==null) {
         msg = 'User registerd....';
         Get.back();
         Log.logger.d("Logger.. User registerd....");
-      } else */if(_user != null){
-        msg = 'User logged in... ';
-        Log.logger.v("Logger.. User login... ");
-        //Navigate to home screen with user data
-        Get.offAndToNamed(AppRoute.home, arguments: {"user": _user});
-      }else{
+      } else {
         msg = 'User not registerd... ';
         Log.logger.d("Logger.. User not registerd....");
-
       }
       _showToast(context, msg);
     }
@@ -287,6 +282,14 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                     ],
                   ),
+            TextField(
+              controller: txtController,
+              decoration: InputDecoration(
+                  fillColor: Colors.white,
+                  filled: true,
+                  labelText: 'Enter name',
+                  errorText: _validateNameFiled ? 'Please enter name' : null),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -323,23 +326,27 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
                 InkWell(
                   onTap: () async {
+                    _validateNameFiled = txtController.text.isEmpty;
                     bool canProcess = false;
                     Log.logger.v("Logger.. Camera button tap");
-                    controller!.startImageStream((image) async {
-                      Log.logger.v("Logger.. startImageStream");
-                      if (canProcess) {
-                        Log.logger.v("Logger.. Can process ... $canProcess");
-                        return;
-                      }
-                      canProcess = true;
+                    if (!_validateNameFiled) {
+                      controller!.startImageStream((image) async {
+                        Log.logger.v("Logger.. startImageStream");
+                        if (canProcess) {
+                          Log.logger.v("Logger.. Can process ... $canProcess");
+                          return;
+                        }
+                        canProcess = true;
 
-                      _predictFacesFromImage(cameraImage: image).then((value) {
-                        Log.logger
-                            .v("Logger.. _predictFacesFromImage.then ... ");
-                        canProcess = false;
+                        _predictFacesFromImage(cameraImage: image)
+                            .then((value) {
+                          Log.logger
+                              .v("Logger.. _predictFacesFromImage.then ... ");
+                          canProcess = false;
+                        });
+                        return null;
                       });
-                      return null;
-                    });
+                    }
                     /*XFile? rawImage = await takePicture();
                     File imageFile = File(rawImage!.path);
 
@@ -386,12 +393,14 @@ class _DashboardPageState extends State<DashboardPage>
           )
         : Container();
   }
-  void _showToast(BuildContext context,String msg) {
+
+  void _showToast(BuildContext context, String msg) {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       SnackBar(
         content: Text(msg),
-        action: SnackBarAction(label: 'OK', onPressed: scaffold.hideCurrentSnackBar),
+        action: SnackBarAction(
+            label: 'OK', onPressed: scaffold.hideCurrentSnackBar),
       ),
     );
   }

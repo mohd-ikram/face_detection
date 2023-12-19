@@ -1,3 +1,4 @@
+import 'package:face_detection/models/User.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -5,6 +6,7 @@ import '../../constant/color_const.dart';
 import '../../routes/app_routes.dart';
 import '../../theme/text_style.dart';
 import '../../utils/db/db_utils.dart';
+import '../../utils/log.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -72,7 +74,8 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(8)),
               child: TextButton(
                 onPressed: () {
-                  Get.toNamed(AppRoute.dashboard,arguments: {"user":LocalDatabase.getUser()});
+                  Get.toNamed(AppRoute.dashboard,
+                      arguments: {"user": LocalDatabase.getUser()});
                 },
                 child: const Text(
                   'Login',
@@ -84,14 +87,32 @@ class _LoginPageState extends State<LoginPage> {
               height: 100,
             ),
             GestureDetector(
-                onTap: () => Get.toNamed(AppRoute.signup),
+                onTap: () =>
+                    Get.toNamed(AppRoute.signup),
                 child: Text(
                   'New User? Create Account',
+                  style: AppTextStyle.boldBlackGrey18.copyWith(fontSize: 14),
+                )),
+            const SizedBox(
+              height: 100,
+            ),
+            GestureDetector(
+                onTap: () => printUser(),
+
+                child: Text(
+                  'Get all register users',
                   style: AppTextStyle.boldBlackGrey18.copyWith(fontSize: 14),
                 ))
           ],
         ),
       ),
     );
+  }
+
+  void printUser(){
+    List<dynamic> users = LocalDatabase.getUsers();
+    for(var data in users){
+      Log.logger.i("User Data ==> $data");
+    }
   }
 }
